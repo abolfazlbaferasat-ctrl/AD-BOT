@@ -2414,7 +2414,7 @@ async def handle_ping(request):
 async def main():
     logger.info("تلاش برای بارگذاری متغیرهای محیطی...")
     
-    # آیدی روم و توکن جدید شما به عنوان مقدار پیش‌فرض ست شدند
+    # آیدی روم و توکن جدید شما
     room_id = os.getenv("ROOM_ID", "6a29bcb958070610178270ed")
     api_token = os.getenv("API_TOKEN", "9a089b7f9bb1f38a943a6add2af7e1823a709e51119a7f9c7f870b443bb8c4cc")
     
@@ -2436,6 +2436,7 @@ async def main():
     await site.start()
     logger.info(f"وب‌سرور پینگ روی پورت {port} ران شد.")
     
+    # اتصال ربات به سرور بازی هایرایز
     bot_def = BotDefinition(room_id=room_id, api_token=api_token, bot=AdvancedBot())
     
     max_reconnect_attempts = 5
@@ -2445,7 +2446,8 @@ async def main():
             logger.info("تلاش برای اتصال به سرور Highrise...")
             from highrise.__main__ import main as highrise_main
             await highrise_main([bot_def])
-        except aiohttp.client_exceptions.ClientConnectionResetError as e:
-            logger.error(f"اتصال WebSocket قطع شد: {e}")
+        except Exception as e:
+            logger.error(f"اتصال WebSocket قطع شد یا با خطا مواجه شد: {e}")
             await bot_def.bot.cleanup_tasks()
             attempt += 1
+            await sleep(5)
