@@ -2170,8 +2170,8 @@ class AdvancedBot(BaseBot):
             logger.error(f"خطا در cmd_addadmin برای {target_username}: {str(e)}")
 
     async def cmd_removeadmin(self, user: User, message: str):
-        if user.username.lower() != "bad_qoq":
-            await self.highrise.chat("فقط bad_qoq می‌تواند از این دستور استفاده کند!")
+        if user.username.lower() != "ad0ri":
+            await self.highrise.chat("فقط ad0ri می‌تواند از این دستور استفاده کند!")
             logger.info(f"کاربر {user.username} سعی کرد !removeadmin را اجرا کند اما دسترسی ندارد.")
             return
 
@@ -2424,6 +2424,7 @@ async def start_background_web_server():
     except Exception as e:
         logger.error(f"خطا در اجرای وب‌سرور پس‌زمینه: {e}")
     
+# ۲. تابع اصلی اجرای ربات (نسخه ضدضربه و مجهز به کنترل خطای تسک‌ها)
 async def main():
     logger.info("تلاش برای بارگذاری متغیرهای محیطی...")
     room_id = os.getenv("ROOM_ID", "68e771922d585712212e8070")
@@ -2436,20 +2437,37 @@ async def main():
     logger.info(f"ROOM_ID: {room_id}")
     logger.info(f"API_TOKEN: {api_token}")
 
+    # 🌟 تنظیم مدیریت خطای جهانی برای asyncio تا هیچ تسکی ربات را کرش نکند
+    def handle_exception(loop, context):
+        msg = context.get("exception", context["message"])
+        logger.error(f"یک تسک پس‌زمینه با خطا مواجه شد اما مهار شد: {msg}")
+
+    import asyncio
+    loop = asyncio.get_running_loop()
+    loop.set_exception_handler(handle_exception)
+
+    # فرستادن وب‌سرور به یک نخ جداگانه و مستقل (ترد) قبل از استارت هایرایز
+    web_thread = threading.Thread(target=run_web_server, daemon=True)
+    web_thread.start()
+
     bot_def = BotDefinition(room_id=room_id, api_token=api_token, bot=AdvancedBot())
     
-    max_reconnect_attempts = 5
+    max_reconnect_attempts = 10  # افزایش تعداد تلاش‌ها برای پایداری بیشتر
     attempt = 0
     while attempt < max_reconnect_attempts:
         try:
             logger.info("تلاش برای اتصال به سرور Highrise...")
             from highrise.__main__ import main as highrise_main
             await highrise_main([bot_def])
-        except aiohttp.client_exceptions.ClientConnectionResetError as e:
-            logger.error(f"اتصال WebSocket قطع شد: {e}")
-            await bot_def.bot.cleanup_tasks()
+        except Exception as e:
+            logger.error(f"اتصال WebSocket قطع شد یا خطا داد: {e}")
+            try:
+                await bot_def.bot.cleanup_tasks()
+            except Exception:
+                pass
             attempt += 1
-            await sleep(5)
+            logger.info(f"انتظار برای اتصال مجدد... تلاش {attempt} از {max_reconnect_attempts}")
+            await sleep(6) # ۶ ثانیه فاصله برای اینکه سرور هایرایز اکانت قبلی را کاملا آزاد کند
 
 if __name__ == "__main__":
     import asyncio
