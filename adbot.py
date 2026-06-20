@@ -2425,11 +2425,12 @@ async def start_background_web_server():
         logger.error(f"خطا در اجرای وب‌سرور پس‌زمینه: {e}")
     
 def main():
-    # اجرای وب‌سرور در یک Thread جداگانه برای دور زدن محدودیت زنده ماندن رندر
-    server_thread = Thread(target=run_web_server, daemon=True)
+    # اجرای وب‌سرور با ساختار هماهنگ با بالای فایل شما
+    import threading
+    server_thread = threading.Thread(target=run_web_server, daemon=True)
     server_thread.start()
 
-    # خواندن متغیرها به صورت استاندارد از پنل رندر
+    # خواندن متغیرها از پنل رندر
     room_id = os.getenv("ROOM_ID")
     api_token = os.getenv("API_TOKEN")
 
@@ -2438,9 +2439,10 @@ def main():
         return
 
     logger.info(f"🚀 در حال راه‌اندازی ربات برای روم: {room_id}")
-    bot = AdvancedBot()
     
     # اجرای حلقه اصلی ربات
+    from highrise_bot_sdk import Bot
+    bot = AdvancedBot()
     bot.run(room_id, api_token)
 
 if __name__ == "__main__":
