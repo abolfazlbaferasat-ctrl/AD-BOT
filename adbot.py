@@ -2318,7 +2318,7 @@ class AdvancedBot(BaseBot):
                 await self.highrise.chat("لطفاً شماره دنس را هم وارد کنید. مثال: !party all 1")
                 return
             dance_input = parts[2]
-        # فیکس نهایی نام دیکشنری‌ها بر اساس فایل اصلی رباتت
+        # حل مشکل پیدا کردن دنس‌ها بدون ارور دادن
         available_emotes = getattr(self, "emotes", getattr(self, "emote_mapping", {}))
         if dance_input not in available_emotes:
             await self.highrise.chat("شماره danc معتبر نیست!")
