@@ -1239,7 +1239,7 @@ class AdvancedBot(BaseBot):
     async def dance_loop():
         try:
             while self.user_dances.get(username) == emote:
-                await self.highrise.send_animation(emote, user.id))
+                await self.highrise.send_animation(emote, user.id)
                 await sleep(duration + 1.5)
         except CancelledError:
             logger.info(f"وظیفه رقص برای {username} لغو شد.")
@@ -2361,7 +2361,7 @@ class AdvancedBot(BaseBot):
             
             await self.highrise.chat(f"مهمونی شروع شد! رقص شماره {dance_input} روی {count} نفر فعال شد. 🎉")
             return
-
+            
         if action in self.emote_mapping:
             if len(parts) < 3:
                 await self.highrise.chat("لطفاً نام کاربری را وارد کنید. مثال: !party 1 @username")
@@ -2386,9 +2386,8 @@ class AdvancedBot(BaseBot):
                     try:
                         while target_username in self.party_dances and self.party_dances[target_username][0] == emote:
                             await self.highrise.send_animation(emote, target_user.id)
-                            await sleep(duration + 1.5)
                     except CancelledError:
-                        pass
+                            pass
                 
                 self.dance_tasks[target_username] = create_task(single_party_loop())
                 await self.highrise.chat(f"رقص اجباری شماره {action} روی @{target_user.username} فعال شد!")
