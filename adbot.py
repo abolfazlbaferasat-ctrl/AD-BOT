@@ -306,6 +306,7 @@ class AdvancedBot(BaseBot):
             "219": "emote-cutesalute",
             "220": "emote-salute",
             "221": "idle-floorsleeping2",
+            "222": "dance-floss",
             "۱": "idle_zombie",
             "۲": "idle_layingdown2",
             "۳": "idle_layingdown",
@@ -527,6 +528,7 @@ class AdvancedBot(BaseBot):
             "۲۱۹": "emote-cutesalute",
             "۲۲۰": "emote-salute",
             "۲۲۱": "idle-floorsleeping2",
+            "۲۲۲": "dance-floss",
             "zombie": "idle_zombie",
             "relaxed": "idle_layingdown2",
             "attentive": "idle_layingdown",
@@ -747,7 +749,8 @@ class AdvancedBot(BaseBot):
             "tiktok11": "dance-tiktok11",
             "cutesalute": "emote-cutesalute",
             "relaxing": "idle-floorsleeping2",
-            "attention": "emote-salute"
+            "attention": "emote-salute",
+            "floss": "dance-floss"
             
         }
 
@@ -971,7 +974,8 @@ class AdvancedBot(BaseBot):
             "emote-kissing": 15.0,
             "dance-tiktok11": 15.0,
             "emote-cutesalute": 15.0,
-            "emote-salute": 15.0
+            "emote-salute": 15.0,
+            "dance-floss": 11.0
         }
 
     def load_config(self):
@@ -1240,12 +1244,17 @@ class AdvancedBot(BaseBot):
         await self.stop_dance(user)
         self.user_dances[username] = emote
         duration = self.emote_durations.get(emote, 7.5)
+        # ⚡ ترفند طلایی: duration - 3.2 برای تکرار صفر تاخیر
+        if duration > 4.5:
+            sleep_time = duration - 3.2
+        else:
+            sleep_time = max(1.0, duration - 1.5)
 
         async def dance_loop():
             try:
                 while self.user_dances.get(username) == emote:
                     await self.highrise.send_emote(emote, user.id)
-                    await sleep(duration)
+                    await sleep(sleep_time)
             except CancelledError:
                 logger.info(f"وظیفه رقص برای {username} لغو شد.")
             except Exception as e:
@@ -2466,13 +2475,17 @@ class AdvancedBot(BaseBot):
         await self.highrise.chat(f"✅ دنس ربات روی حالت تکرار همیشگی (Loop) تنظیم شد: [{input_emote}]")
         logger.info(f"دنس مداوم ربات به {actual_emote_name} توسط {user.username} تغییر کرد.")
 
-        # به دست آوردن تایم دقیق دنس از لیست برای جلوگیری از ایستادن ربات و رفتن به حالت گوست
-        # اگر زمان دنس در لیست نبود، به طور پیش‌فرض روی ۷ ثانیه قرار می‌گیرد
-        duration = self.emote_durations.get(actual_emote_name, 7.0)
-        # کم کردن ۲ ثانیه برای اینکه ربات قبل از تمام شدن کامل دنس قبلی، دنس بعدی را شروع کند تا متوقف نشود
-        sleep_time = max(1.5, duration - 2.0)
+        # ⚡ دریافت زمان واقعی دنس از دیتابیس ربات
+        duration = self.emote_durations.get(actual_emote_name, 5.0)
+        
+        # 🔥 ترفند طلایی: کاهش زمان خواب ربات به اندازه ۳.۲ ثانیه!
+        # این کار باعث می‌شود دنس بعدی دقیقاً در لحظه طلایی (قبل از ایستادن کاراکتر) ارسال شود و تاخیر پینگ سرور کاملاً صفر شود.
+        if duration > 4.5:
+            sleep_time = duration - 3.2
+        else:
+            sleep_time = max(1.0, duration - 1.5)
 
-        # شروع حلقه دنس بدون وقفه
+        # شروع حلقه دنس بدون وقفه و روان
         async def new_emote_loop():
             try:
                 while True:
