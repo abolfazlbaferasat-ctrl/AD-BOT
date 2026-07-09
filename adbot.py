@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 # تنظیمات پیش‌فرض
 CONFIG_FILE = "bot_config.json"
 DEFAULT_CONFIG = {
+    "host_usernames": ["ad0ri"],
     "admin_usernames": ["ad0ri"],
     "vip_usernames": [],
     "banned_users": [],
@@ -77,6 +78,8 @@ class AdvancedBot(BaseBot):
             "!welcome": self.cmd_welcome,
             "!addadmin": self.cmd_addadmin,
             "!removeadmin": self.cmd_removeadmin,
+            "!addhost": self.cmd_addhost,
+            "!removehost": self.cmd_removehost,
             "!listadd": self.cmd_listadd,
             "!freeze": self.cmd_freeze,
             "!unfreeze": self.cmd_unfreeze,
@@ -1039,11 +1042,20 @@ class AdvancedBot(BaseBot):
             "emote-threadexchange-star": 15.0
         }
 
+    def is_host(self, username: str) -> bool:
+        """بررسی می‌کند که آیا کاربر رتبه Host (بالاترین سطح دسترسی، بالاتر از ادمین و VIP) دارد یا نه."""
+        return username.lower() in [h.lower() for h in self.config.get("host_usernames", [])]
+
     def load_config(self):
         try:
             if os.path.exists(CONFIG_FILE):
                 with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
                     self.config = json.load(f)
+                # اضافه کردن کلیدهای جدید (مثل host_usernames) به تنظیمات قدیمی
+                # که ممکنه از قبل روی سرور ذخیره شده باشن و این کلید رو نداشته باشن
+                for key, value in DEFAULT_CONFIG.items():
+                    if key not in self.config:
+                        self.config[key] = value.copy() if isinstance(value, (list, dict)) else value
                 logger.info("تنظیمات با موفقیت بارگذاری شد.")
             else:
                 logger.info("فایل تنظیمات یافت نشد، استفاده از تنظیمات پیش‌فرض...")
@@ -1058,9 +1070,16 @@ class AdvancedBot(BaseBot):
             self.config = DEFAULT_CONFIG
             self.save_config()
 
+        # 🛡️ همیشه مطمئن شو هاست‌ها توی لیست ادمین‌ها هم هستن
+        # (هاست به‌صورت خودکار تمام دسترسی‌های ادمین رو هم داره)
+        for host in self.config.get("host_usernames", []):
+            if host not in self.config["admin_usernames"]:
+                self.config["admin_usernames"].append(host)
+
     def save_config(self):
         try:
             config_to_save = self.config.copy()
+            config_to_save["host_usernames"] = list(config_to_save["host_usernames"])
             config_to_save["admin_usernames"] = list(config_to_save["admin_usernames"])
             config_to_save["vip_usernames"] = list(config_to_save["vip_usernames"])
             config_to_save["banned_users"] = list(config_to_save["banned_users"])
@@ -1406,8 +1425,10 @@ class AdvancedBot(BaseBot):
             "!addtele نام_مکان - ذخیره مکان جدید\n"
             "!deltele نام_مکان - حذف مکان تلپورت\n"
             "!welcome پیام - تنظیم پیام خوش‌آمدگویی\n"
-            "!addadmin @username - افزودن ادمین (فقط ad0ri)\n"
-            "!removeadmin @username - حذف ادمین (فقط ad0ri)\n"
+            "!addadmin @username - افزودن ادمین (فقط Host)\n"
+            "!removeadmin @username - حذف ادمین (فقط Host)\n"
+            "!addhost @username - افزودن Host (فقط Host)\n"
+            "!removehost @username - حذف Host (فقط Host)\n"
             "!listadd - نمایش لیست ادمین‌ها\n"
             "!freeze @username - فریز کردن کاربر\n"
             "!unfreeze @username - آزاد کردن کاربر از فریز\n"
@@ -2249,8 +2270,8 @@ class AdvancedBot(BaseBot):
         logger.info(f"پیام خوش‌آمدگویی توسط {user.username} به '{welcome_message}' تغییر کرد.")
 
     async def cmd_addadmin(self, user: User, parts: list):
-        if user.username.lower() != "ad0ri":
-            await self.highrise.chat("فقط ad0ri می‌تواند از این دستور استفاده کند!")
+        if not self.is_host(user.username):
+            await self.highrise.chat("فقط Host می‌تواند از این دستور استفاده کند!")
             logger.info(f"کاربر {user.username} سعی کرد !addadmin را اجرا کند اما دسترسی ندارد.")
             return
 
@@ -2276,8 +2297,8 @@ class AdvancedBot(BaseBot):
             logger.error(f"خطا در cmd_addadmin برای {target_username}: {str(e)}")
 
     async def cmd_removeadmin(self, user: User, parts: list):
-        if user.username.lower() != "ad0ri":
-            await self.highrise.chat("فقط ad0ri می‌تواند از این دستور استفاده کند!")
+        if not self.is_host(user.username):
+            await self.highrise.chat("فقط Host می‌تواند از این دستور استفاده کند!")
             logger.info(f"کاربر {user.username} سعی کرد !removeadmin را اجرا کند اما دسترسی ندارد.")
             return
 
@@ -2293,6 +2314,11 @@ class AdvancedBot(BaseBot):
             logger.info(f"کاربر {target_username} توسط {user.username} برای حذف از ادمین‌ها درخواست شد، اما در لیست نیست.")
             return
 
+        if self.is_host(target_username):
+            await self.highrise.chat(f"❌ @{target_username} رتبه Host دارد و نمی‌توان او را از ادمین‌ها حذف کرد!")
+            logger.info(f"تلاش برای حذف Host {target_username} از ادمین‌ها توسط {user.username} رد شد.")
+            return
+
         if target_username == "bad_qoq":
             await self.highrise.chat("نمی‌توانید bad_qoq را از ادمین‌ها حذف کنید!")
             logger.info(f"تلاش برای حذف bad_qoq از ادمین‌ها توسط {user.username} رد شد.")
@@ -2306,6 +2332,67 @@ class AdvancedBot(BaseBot):
         except Exception as e:
             await self.highrise.chat(f"خطا در حذف ادمین @{target_username}: {str(e)}")
             logger.error(f"خطا در cmd_removeadmin برای {target_username}: {str(e)}")
+
+    async def cmd_addhost(self, user: User, parts: list):
+        """فقط Host می‌تواند Host جدید اضافه کند (بالاترین رتبه دسترسی، بالاتر از ادمین و VIP)."""
+        if not self.is_host(user.username):
+            await self.highrise.chat("فقط Host می‌تواند از این دستور استفاده کند!")
+            logger.info(f"کاربر {user.username} سعی کرد !addhost را اجرا کند اما دسترسی ندارد.")
+            return
+
+        parts = [p.lower() for p in parts]
+        if len(parts) != 2 or not parts[1].startswith("@"):
+            await self.highrise.chat(self.get_message("invalid_format", format="!addhost @username"))
+            logger.info(f"فرمت نادرست برای دستور !addhost توسط {user.username} وارد شد.")
+            return
+
+        target_username = parts[1][1:].lower()
+        if target_username in self.config["host_usernames"]:
+            await self.highrise.chat(f"کاربر @{target_username} از قبل Host است!")
+            return
+
+        try:
+            self.config["host_usernames"].append(target_username)
+            if target_username not in self.config["admin_usernames"]:
+                self.config["admin_usernames"].append(target_username)
+            self.save_config()
+            await self.highrise.chat(f"👑 کاربر @{target_username} با موفقیت Host شد!")
+            logger.info(f"کاربر {target_username} توسط {user.username} به Host تبدیل شد.")
+        except Exception as e:
+            await self.highrise.chat(f"خطا در افزودن Host @{target_username}: {str(e)}")
+            logger.error(f"خطا در cmd_addhost برای {target_username}: {str(e)}")
+
+    async def cmd_removehost(self, user: User, parts: list):
+        """فقط Host می‌تواند رتبه Host را از کسی حذف کند."""
+        if not self.is_host(user.username):
+            await self.highrise.chat("فقط Host می‌تواند از این دستور استفاده کند!")
+            logger.info(f"کاربر {user.username} سعی کرد !removehost را اجرا کند اما دسترسی ندارد.")
+            return
+
+        parts = [p.lower() for p in parts]
+        if len(parts) != 2 or not parts[1].startswith("@"):
+            await self.highrise.chat(self.get_message("invalid_format", format="!removehost @username"))
+            logger.info(f"فرمت نادرست برای دستور !removehost توسط {user.username} وارد شد.")
+            return
+
+        target_username = parts[1][1:].lower()
+        if target_username not in self.config["host_usernames"]:
+            await self.highrise.chat(f"کاربر @{target_username} در لیست Host‌ها نیست!")
+            return
+
+        if len(self.config["host_usernames"]) <= 1:
+            await self.highrise.chat("❌ نمی‌توان آخرین Host را حذف کرد!")
+            logger.info(f"تلاش برای حذف آخرین Host ({target_username}) توسط {user.username} رد شد.")
+            return
+
+        try:
+            self.config["host_usernames"].remove(target_username)
+            self.save_config()
+            await self.highrise.chat(f"کاربر @{target_username} از رتبه Host حذف شد.")
+            logger.info(f"کاربر {target_username} توسط {user.username} از Host حذف شد.")
+        except Exception as e:
+            await self.highrise.chat(f"خطا در حذف Host @{target_username}: {str(e)}")
+            logger.error(f"خطا در cmd_removehost برای {target_username}: {str(e)}")
 
     async def cmd_listadd(self, user: User, parts: list):
         if user.username.lower() not in self.config["admin_usernames"]:
